@@ -92,14 +92,16 @@ class CsvRankingRepository(RankingRepository):
         for encoding in ("gb18030", "gbk", "utf-8-sig"):
             try:
                 with path.open("r", encoding=encoding, errors="strict", newline="") as handle:
-                    raw_rows = list(csv.reader(handle))
+                    reader = csv.reader(handle)
+                    header = next(reader, None)
+                    raw_rows = reader
                 break
             except (UnicodeDecodeError, OSError):
                 raw_rows = []
         if not raw_rows:
             return rows
         position = 0
-        for raw in raw_rows[1:]:
+        for raw in raw_rows:
             if len(raw) < 8:
                 continue
             timestamp = _parse_time(raw[1])
