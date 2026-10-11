@@ -1,0 +1,24 @@
+:root { --ink:#132238; --muted:#6b7b91; --line:#e5ebf3; --bg:#f4f7fb; --card:#fff; --blue:#326bff; --green:#11865b; --red:#c64747; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 "Microsoft YaHei", "PingFang SC", sans-serif; }
+.shell { max-width:1440px; margin:auto; padding:38px 42px 28px; }
+.hero { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; margin-bottom:27px; }
+.eyebrow { color:var(--blue); font-size:11px; letter-spacing:.16em; font-weight:800; margin:0 0 6px; }
+h1 { margin:0; font-size:32px; letter-spacing:-.03em; } h2 { margin:0; font-size:21px; }
+.subtitle { color:var(--muted); margin:8px 0 0; }
+.status { background:#e9f8f1; color:var(--green); padding:7px 12px; border-radius:20px; font-size:12px; white-space:nowrap; }
+.control-panel { display:flex; flex-wrap:wrap; align-items:end; gap:12px; background:var(--card); border:1px solid var(--line); padding:17px; border-radius:14px; box-shadow:0 6px 20px #243b5a0a; }
+label { color:var(--muted); font-size:12px; display:flex; flex-direction:column; gap:5px; min-width:210px; } label.time-label { flex:1; }
+select,input,button { height:38px; border:1px solid #d8e1ec; border-radius:8px; background:white; color:var(--ink); padding:0 11px; font:inherit; }
+button { cursor:pointer; font-weight:600; } button:hover { border-color:var(--blue); } button.primary { background:var(--blue); color:#fff; border-color:var(--blue); }
+.number-label { min-width:80px; } .number-label input { width:80px; }
+.notice { margin:14px 0; padding:11px 14px; color:#885d00; background:#fff7dd; border:1px solid #f1df9b; border-radius:9px; } .hidden { display:none; }
+.summary-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:13px; margin:16px 0; }
+.metric { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:17px; } .metric span { color:var(--muted); font-size:12px; display:block; } .metric strong { display:block; margin-top:5px; font-size:21px; }
+.ranking-card { background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+.card-title { display:flex; justify-content:space-between; align-items:center; padding:20px 22px 14px; } .card-title > span { color:var(--muted); font-size:12px; }
+.bars { display:flex; height:126px; align-items:stretch; gap:7px; padding:0 22px 12px; border-bottom:1px solid var(--line); } .bar-item { flex:1 1 0; min-width:0; height:100%; display:flex; flex-direction:column; justify-content:flex-end; gap:6px; text-align:center; font-size:10px; color:var(--muted); } .bar { width:100%; min-height:3px; flex:0 0 auto; background:linear-gradient(180deg,#5e8cff,#326bff); border-radius:4px 4px 0 0; } .bar-item span { height:29px; line-height:14px; display:flex; align-items:flex-start; justify-content:center; overflow:hidden; white-space:normal; word-break:break-all; } .bar-item:nth-child(-n+3) .bar { background:linear-gradient(180deg,#38b98a,#11865b); }
+.table-wrap { overflow:auto; } table { border-collapse:collapse; width:100%; min-width:1040px; } th,td { padding:12px 14px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; } th { color:var(--muted); background:#fbfcfe; font-size:12px; font-weight:600; } th:nth-child(2),td:nth-child(2),th:nth-child(3),td:nth-child(3) { text-align:left; } tbody tr.top { background:#f2f7ff; } tbody tr:hover { background:#f8fbff; }
+.rank { font-weight:800; color:var(--blue); } .profit { color:var(--green); font-variant-numeric:tabular-nums; } .loss { color:var(--red); font-variant-numeric:tabular-nums; } .badge { display:inline-block; padding:2px 7px; border-radius:10px; font-size:11px; background:#edf1f6; color:var(--muted); } .badge.long { color:var(--green); background:#e7f7f0; } .badge.flat { color:var(--muted); }
+footer { color:var(--muted); padding:18px 2px; font-size:12px; }
+@media (max-width:800px) { .shell { padding:22px 15px; } .hero { display:block; } h1 { font-size:26px; } .status { display:inline-block; margin-top:13px; } .summary-grid { grid-template-columns:repeat(2,1fr); } .control-panel { align-items:stretch; } label,label.time-label { width:100%; } button { flex:1; } }
