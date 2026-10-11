@@ -64,6 +64,11 @@ class CsvRankingRepository(RankingRepository):
         self._signature = None
         self.contract_names = []
 
+    def preload(self):
+        """Load and index all files once during WSGI worker startup."""
+        self._load()
+        return len(self._data or {})
+
     def _load(self):
         paths = sorted(self.directory.glob("*.csv"))
         signature = tuple((str(path), path.stat().st_mtime_ns, path.stat().st_size) for path in paths)

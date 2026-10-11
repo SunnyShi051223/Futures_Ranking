@@ -9,6 +9,10 @@ function clearNotice() { $('notice').classList.add('hidden'); }
 
 async function getJSON(url) {
   const response = await fetch(url);
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(response.ok ? '服务器返回了非 JSON 数据' : `接口暂时不可用（HTTP ${response.status}）`);
+  }
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || '请求失败');
   return data;

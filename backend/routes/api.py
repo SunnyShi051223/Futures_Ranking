@@ -32,6 +32,12 @@ repositories = {
     for strategy_id, config in STRATEGIES.items()
 }
 
+# Parse the CSV files while the WSGI worker starts. This makes the first
+# browser request return immediately instead of spending the request timeout
+# scanning dozens of WT8 exports.
+for _repository_instance in repositories.values():
+    _repository_instance.preload()
+
 
 def _error(message: str, status: int = 400):
     return jsonify({"error": message}), status
