@@ -1,5 +1,6 @@
 """WT8 CSV reader and time-aligned ranking repository."""
 import csv
+import json
 import re
 from bisect import bisect_right
 from datetime import datetime
@@ -63,6 +64,7 @@ class CsvRankingRepository(RankingRepository):
         self._data = None
         self._signature = None
         self.contract_names = []
+        self._periods_cache = None
 
     def preload(self):
         """Load and index all files once during WSGI worker startup."""
@@ -86,6 +88,48 @@ class CsvRankingRepository(RankingRepository):
         self._signature = signature
         self.contract_names = sorted(data)
         return data
+
+    def _iter_rows(self, path: Path, instrument: str):
+        """Yield normalized rows without materializing a CSV file first."""
+        for encoding in ("gb18030", "gbk", "utf-8-sig"):
+            try:
+                with path.open("r", encoding=encoding, errors="strict", newline="") as handle:
+                    reader = csv.reader(handle)
+                    next(reader, None)
+                    position = 0
+                    for raw in reader:
+                        if len(raw) < 8:
+                            continue
+                        timestamp = _parse_time(raw[1])
+                        if timestamp is None:
+                            continue
+                        signal = _clean(raw[3])
+                        if signal == "BK":
+                            position = 1
+                        elif signal in {"SP", "SK", "BP"}:
+                            position = 0
+                        equity = _number(raw[14] if len(raw) > 14 else None)
+                        if equity is None:
+                            continue
+                        yield {
+                            "timestamp": timestamp,
+                            "timestamp_iso": timestamp.isoformat(timespec="seconds"),
+                            "instrument": instrument,
+                            "contract": _clean(raw[2] if len(raw) > 2 else ""),
+                            "signal": signal,
+                            "signal_row": _clean(raw[4] if len(raw) > 4 else ""),
+                            "buy_sell": _clean(raw[5] if len(raw) > 5 else ""),
+                            "close_open": _clean(raw[6] if len(raw) > 6 else ""),
+                            "price": _number(raw[7] if len(raw) > 7 else None),
+                            "equity": equity,
+                            "available": _number(raw[13] if len(raw) > 13 else None),
+                            "fee": _number(raw[11] if len(raw) > 11 else None),
+                            "pnl": _number(raw[12] if len(raw) > 12 else None),
+                            "position": position,
+                        }
+                return
+            except (UnicodeDecodeError, OSError):
+                continue
 
     def _read_file(self, path: Path, instrument: str):
         rows = []
@@ -137,7 +181,12 @@ class CsvRankingRepository(RankingRepository):
 
     def periods(self, limit=10000):
         data = self._load()
-        timestamps = sorted({row["timestamp"] for rows in data.values() for row in rows})
+        if self._periods_cache is None:
+            timestamps = set()
+            for rows in data.values():
+                timestamps.update(row["timestamp"] for row in rows)
+            self._periods_cache = sorted(timestamps)
+        timestamps = self._periods_cache
         selected = timestamps[-limit:]
         return {
             "items": [t.isoformat(timespec="seconds") for t in selected],
