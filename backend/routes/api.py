@@ -37,7 +37,6 @@ repositories = {
 # scanning dozens of WT8 exports.
 
 
-
 def _error(message: str, status: int = 400):
     return jsonify({"error": message}), status
 
