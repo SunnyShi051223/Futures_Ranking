@@ -12,14 +12,15 @@
       <div>
         <p class="eyebrow">FUTURES RANKING</p>
         <h1>收益排序</h1>
-        <p class="subtitle">选择一个小时，查看各期货合约在 WT8 SAR 多头策略下的累计权益收益排名。</p>
+        <p id="subtitle" class="subtitle">选择起始和结束时点，查看各期货合约在该区间内的策略收益排名。</p>
       </div>
       <div id="health" class="status">正在连接数据…</div>
     </header>
 
     <section class="control-panel">
       <label>策略<select id="strategy"></select></label>
-      <label class="time-label">观察时点<select id="timestamp"></select></label>
+      <label class="time-label">起始观察时点<input id="startTimestamp" type="datetime-local" step="3600"></label>
+      <label class="time-label">结束观察时点<input id="timestamp" type="datetime-local" step="3600"></label>
       <button id="prev" title="上一个时点">← 上一时点</button>
       <button id="next" title="下一个时点">下一时点 →</button>
       <label class="number-label">Top K<input id="topK" type="number" min="1" max="100" value="10"></label>
@@ -28,20 +29,20 @@
 
     <section id="notice" class="notice hidden"></section>
     <section class="summary-grid">
-      <div class="metric"><span>数据时点</span><strong id="asOf">—</strong></div>
+      <div class="metric"><span>收益区间</span><strong id="asOf">—</strong></div>
       <div class="metric"><span>可排名品种</span><strong id="total">—</strong></div>
-      <div class="metric"><span>榜首收益率</span><strong id="best">—</strong></div>
-      <div class="metric"><span>初始资金</span><strong id="capital">—</strong></div>
+      <div class="metric"><span id="bestLabel">榜首区间收益</span><strong id="best">—</strong></div>
+      <div class="metric"><span id="capitalLabel">初始资金</span><strong id="capital">—</strong></div>
     </section>
 
     <section class="ranking-card">
-      <div class="card-title"><div><p class="eyebrow">LIVE SNAPSHOT</p><h2>策略收益排名</h2></div><span id="updated">—</span></div>
+      <div class="card-title"><div><p class="eyebrow">LIVE SNAPSHOT</p><h2 id="rankingTitle">策略收益排名</h2></div><span id="updated">—</span></div>
       <div id="bars" class="bars"></div>
-      <div class="table-wrap"><table><thead><tr><th>排名</th><th>品种</th><th>策略合约</th><th>权益</th><th>收益金额</th><th>收益率</th><th>价格</th><th>数据时间</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>排名</th><th>品种</th><th>策略合约</th><th id="startValueLabel">起始权益</th><th id="endValueLabel">结束权益</th><th id="returnValueLabel">区间收益</th><th id="returnRateLabel">区间收益率</th><th>结束数据时间</th></tr></thead><tbody id="rows"></tbody></table></div>
     </section>
 
-    <footer>当前数据源：CSV · 后续可切换 MySQL · 每个品种取所选时点之前最近一条权益记录</footer>
+    <footer>纯价格模式按区间起止价格涨跌幅排序；策略模式按单合约区间收益金额排序。</footer>
   </main>
-  <script src="/front/js/app.js"></script>
+  <script src="/front/js/app.js?v=20261012-price-ranking"></script>
 </body>
 </html>

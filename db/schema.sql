@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS {table_name} (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    instrument VARCHAR(96) NOT NULL,
+    contract VARCHAR(32) NULL,
+    timestamp DATETIME NOT NULL,
+    price DECIMAL(20,6) NULL,
+    equity DECIMAL(20,4) NOT NULL,
+    signal_text VARCHAR(16) NULL,
+    position TINYINT NOT NULL DEFAULT 0,
+    close_volume DECIMAL(20,4) NULL,
+    volume DECIMAL(20,4) NULL,
+    turnover DECIMAL(20,4) NULL,
+    fee DECIMAL(20,4) NULL,
+    trade_pnl DECIMAL(20,4) NULL,
+    available DECIMAL(20,4) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_instrument_time (instrument, timestamp),
+    KEY idx_timestamp (timestamp),
+    KEY idx_instrument (instrument)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
