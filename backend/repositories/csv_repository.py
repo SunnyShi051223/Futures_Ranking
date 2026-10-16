@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .base import RankingRepository
+from .margin_utils import build_margin_index, margin_rate_at
 
 
 DATE_FORMATS = (
@@ -65,7 +66,10 @@ class CsvRankingRepository(RankingRepository):
         self._signature = None
         self.contract_names = []
         self._periods_cache = None
+        self._margin_index = None
         self._cache_path = self.directory.parent / "cache" / f"{self.strategy_id}.json"
+        self._cache_loaded_mtime = None
+        self._cache_invalid_mtime = None
 
     def preload(self):
         """Load and index all files once during WSGI worker startup."""
@@ -73,9 +77,20 @@ class CsvRankingRepository(RankingRepository):
         return len(self._data or {})
 
     def _load(self):
-        if self._cache_path.exists():
+        cache_mtime = self._cache_path.stat().st_mtime_ns if self._cache_path.exists() else None
+        if self._data is not None and cache_mtime == self._cache_loaded_mtime and cache_mtime is not None:
+            return self._data
+        paths = sorted(self.directory.glob("*.csv"))
+        signature = tuple((str(path), path.stat().st_mtime_ns, path.stat().st_size) for path in paths)
+        if self._data is not None and signature == self._signature:
+            return self._data
+        if self._cache_path.exists() and cache_mtime != self._cache_invalid_mtime:
             try:
                 payload = json.loads(self._cache_path.read_text(encoding="utf-8"))
+                required_fields = {"turnover", "volume", "close_volume", "available", "position"}
+                cache_rows = [rows[0] for rows in payload.get("data", {}).values() if rows]
+                if payload.get("schema_version") != 2 or any(not required_fields.issubset(row) for row in cache_rows):
+                    raise ValueError("cached ranking data does not include margin inputs")
                 data = {}
                 for instrument, rows in payload.get("data", {}).items():
                     for row in rows:
@@ -83,16 +98,14 @@ class CsvRankingRepository(RankingRepository):
                         row["timestamp_iso"] = row["timestamp"].isoformat(timespec="seconds")
                     data[instrument] = rows
                 self._data = data
+                self._margin_index = build_margin_index(data)
                 self.contract_names = sorted(data)
                 self._periods_cache = [_parse_time(value) for value in payload.get("periods", [])]
                 self._signature = ("cache", self._cache_path.stat().st_mtime_ns)
+                self._cache_loaded_mtime = self._signature[1]
                 return data
             except (OSError, ValueError, TypeError, KeyError):
-                pass
-        paths = sorted(self.directory.glob("*.csv"))
-        signature = tuple((str(path), path.stat().st_mtime_ns, path.stat().st_size) for path in paths)
-        if self._data is not None and signature == self._signature:
-            return self._data
+                self._cache_invalid_mtime = cache_mtime
         data = {}
         for path in paths:
             instrument = _instrument_name(path)
@@ -102,6 +115,7 @@ class CsvRankingRepository(RankingRepository):
             if rows:
                 data[instrument] = rows
         self._data = data
+        self._margin_index = build_margin_index(data)
         self._signature = signature
         self.contract_names = sorted(data)
         return data
@@ -225,6 +239,18 @@ class CsvRankingRepository(RankingRepository):
         index = bisect_right(times, target) - 1
         return rows[index] if index >= 0 else None
 
+    def _five_trading_day_start(self, rows, end_row):
+        """Find the same-time observation five data-bearing dates earlier."""
+        end_time = end_row["timestamp"]
+        trading_dates = sorted({row["timestamp"].date() for row in rows if row["timestamp"] <= end_time})
+        date_index = bisect_right(trading_dates, end_time.date()) - 1
+        if date_index < 5:
+            return None
+        start_date = trading_dates[date_index - 5]
+        start_target = datetime.combine(start_date, end_time.time())
+        row = self._at_or_before(rows, start_target)
+        return row if row is not None and row["timestamp"].date() == start_date else None
+
     @staticmethod
     def _at_or_after(rows, target):
         """Use the first available observation when a series starts later."""
@@ -239,52 +265,57 @@ class CsvRankingRepository(RankingRepository):
         target = _parse_time(timestamp)
         if target is None:
             raise ValueError("invalid timestamp")
-        start = _parse_time(start_timestamp) if start_timestamp else None
         price_mode = self.strategy_id == "price_only"
-        if price_mode and start is None:
-            raise ValueError("纯价格排序需要选择起始和结束时点")
-        if start and start >= target:
-            raise ValueError("起始时点必须早于结束时点")
         result = []
         for instrument, rows in data.items():
             row = self._at_or_before(rows, target)
             if row is None:
                 continue
-            start_row = self._at_or_before(rows, start) if start else None
-            if price_mode and start_row is None:
-                start_row = self._at_or_after(rows, start)
-            if price_mode and (start_row is None or start_row.get("price") is None or row.get("price") is None):
+            start_row = self._five_trading_day_start(rows, row)
+            if start_row is None:
                 continue
-            starting_equity = (start_row["price"] if price_mode else (start_row["equity"] if start_row else self.initial_capital))
+            starting_equity = start_row["price"] if price_mode else start_row["equity"]
             ending_value = row["price"] if price_mode else row["equity"]
+            if starting_equity is None or ending_value is None or starting_equity <= 0:
+                continue
             item = dict(row)
             item.pop("timestamp", None)
             item["starting_equity"] = starting_equity
             item["ending_equity"] = ending_value
             item["return_amount"] = ending_value - starting_equity
-            item["return_rate"] = (item["return_amount"] / starting_equity) * 100 if starting_equity else 0
+            if price_mode:
+                denominator = starting_equity
+                item["starting_margin"] = None
+            else:
+                multipliers, histories, times = self._margin_index
+                multiplier = multipliers.get(instrument)
+                margin_rate = margin_rate_at(instrument, start_row["timestamp"], histories, times)
+                denominator = start_row["price"] * multiplier * margin_rate if start_row.get("price") and multiplier and margin_rate else None
+                item["starting_margin"] = denominator
+            if denominator is None or denominator <= 0:
+                continue
+            item["return_rate"] = (item["return_amount"] / denominator) * 100
+            item["lookback_timestamp"] = start_row["timestamp_iso"]
             item["data_time"] = row["timestamp_iso"]
             item["lag_minutes"] = round((target - row["timestamp"]).total_seconds() / 60, 1)
             item["stale"] = item["lag_minutes"] > 180
             result.append(item)
-        if price_mode:
-            result.sort(key=lambda item: (-item["return_rate"], item["instrument"]))
-        else:
-            # The requested leaderboard is based on each contract's one-lot P&L.
-            result.sort(key=lambda item: (-item["return_amount"], item["instrument"]))
+        result.sort(key=lambda item: (-item["return_rate"], item["instrument"]))
         for rank, item in enumerate(result, 1):
             item["rank"] = rank
             item["in_top_k"] = rank <= top_k
             item["equity"] = round(item["equity"], 2)
             item["return_amount"] = round(item["return_amount"], 2)
             item["return_rate"] = round(item["return_rate"], 4)
+            if item.get("starting_margin") is not None:
+                item["starting_margin"] = round(item["starting_margin"], 2)
             if item["price"] is not None:
                 item["price"] = round(item["price"], 6)
         return {
             "strategy": self.strategy_id,
             "strategy_name": self.strategy_name,
-            "start_timestamp": start.isoformat(timespec="seconds") if start else None,
             "timestamp": target.isoformat(timespec="seconds"),
+            "lookback_trading_days": 5,
             "initial_capital": self.initial_capital,
             "ranking_mode": "price" if price_mode else "strategy",
             "top_k": top_k,

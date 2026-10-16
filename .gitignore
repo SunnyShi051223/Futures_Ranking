@@ -3,4 +3,5 @@
 __pycache__/
 *.py[cod]
 data/cache/
-backtest_output/
+backtest_output/*
+!backtest_output/readme.md

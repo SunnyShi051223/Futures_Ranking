@@ -12,15 +12,14 @@
       <div>
         <p class="eyebrow">FUTURES RANKING</p>
         <h1>收益排序</h1>
-        <p id="subtitle" class="subtitle">选择起始和结束时点，查看各期货合约在该区间内的策略收益排名。</p>
+        <p id="subtitle" class="subtitle">选择一个观察时点，查看此前五日保证金收益率排名。</p>
       </div>
       <div id="health" class="status">正在连接数据…</div>
     </header>
 
     <section class="control-panel">
       <label>策略<select id="strategy"></select></label>
-      <label class="time-label">起始观察时点<input id="startTimestamp" type="datetime-local" step="3600"></label>
-      <label class="time-label">结束观察时点<input id="timestamp" type="datetime-local" step="3600"></label>
+      <label class="time-label">观察时点<input id="timestamp" type="datetime-local" step="3600"></label>
       <button id="prev" title="上一个时点">← 上一时点</button>
       <button id="next" title="下一个时点">下一时点 →</button>
       <label class="number-label">Top K<input id="topK" type="number" min="1" max="100" value="10"></label>
@@ -29,20 +28,20 @@
 
     <section id="notice" class="notice hidden"></section>
     <section class="summary-grid">
-      <div class="metric"><span>收益区间</span><strong id="asOf">—</strong></div>
+      <div class="metric"><span>观察时点</span><strong id="asOf">—</strong></div>
       <div class="metric"><span>可排名品种</span><strong id="total">—</strong></div>
-      <div class="metric"><span id="bestLabel">榜首区间收益</span><strong id="best">—</strong></div>
-      <div class="metric"><span id="capitalLabel">初始资金</span><strong id="capital">—</strong></div>
+      <div class="metric"><span id="bestLabel">榜首五日保证金收益率</span><strong id="best">—</strong></div>
+      <div class="metric"><span>计算窗口</span><strong>前5个交易日</strong></div>
     </section>
 
     <section class="ranking-card">
       <div class="card-title"><div><p class="eyebrow">LIVE SNAPSHOT</p><h2 id="rankingTitle">策略收益排名</h2></div><span id="updated">—</span></div>
       <div id="bars" class="bars"></div>
-      <div class="table-wrap"><table><thead><tr><th>排名</th><th>品种</th><th>策略合约</th><th id="startValueLabel">起始权益</th><th id="endValueLabel">结束权益</th><th id="returnValueLabel">区间收益</th><th id="returnRateLabel">区间收益率</th><th>结束数据时间</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>排名</th><th>品种</th><th>策略合约</th><th id="startValueHeading">五日前一手保证金/价格</th><th>观察时点权益/价格</th><th>五日收益/价格涨跌</th><th id="returnRateHeading">五日保证金收益率/价格涨幅</th><th>五日前数据时间</th><th>观察数据时间</th></tr></thead><tbody id="rows"></tbody></table></div>
     </section>
 
-    <footer>纯价格模式按区间起止价格涨跌幅排序；策略模式按单合约区间收益金额排序。</footer>
+    <footer>策略榜按前五个交易日净盈亏÷五日前一手保证金排序；纯价格榜按同区间价格涨幅排序。保证金按WT8历史成交和持仓记录估算。</footer>
   </main>
-  <script src="/front/js/app.js?v=20261012-price-ranking"></script>
+  <script src="/front/js/app.js?v=20261014-margin-normalized-ranking"></script>
 </body>
 </html>

@@ -11,22 +11,22 @@ api_bp = Blueprint("api", __name__)
 STRATEGIES = {
     "price_only": {
         "name": "纯价格涨跌幅排序",
-        "description": "按区间起止价格计算各期货合约的价格涨跌幅，不使用策略权益",
+        "description": "按观察时点前五个交易日的价格涨幅排序，不使用策略权益",
         "folder": "小时Buy_And_Hold",
     },
     "buy_hold": {
-        "name": "1小时 K线涨幅收益（Long & Hold）",
-        "description": "WT8 Long & Hold 策略逐合约权益收益排序",
+        "name": "Long & Hold 五日保证金收益率",
+        "description": "按 WT8 Long & Hold 五日净盈亏除以窗口起点一手保证金排序",
         "folder": "小时Buy_And_Hold",
     },
     "sar_long": {
-        "name": "1小时 SAR 多头收益",
-        "description": "WT8 小时 SAR 多头策略逐合约权益收益排序",
+        "name": "SAR 多头五日保证金收益率",
+        "description": "按 WT8 SAR 多头五日净盈亏除以窗口起点一手保证金排序",
         "folder": "小时SAR多头",
     },
     "macd_long": {
-        "name": "1小时 MACD 多头收益",
-        "description": "WT8 小时 MACD 多头策略逐合约权益收益排序",
+        "name": "MACD 多头五日保证金收益率",
+        "description": "按 WT8 MACD 五日净盈亏除以窗口起点一手保证金排序",
         "folder": "小时MACD多头",
     },
 }
@@ -131,14 +131,8 @@ def rankings():
         top_k = min(max(int(request.args.get("top_k", 10)), 1), 100)
     except ValueError:
         return _error("top_k 必须是整数")
-    start_timestamp = request.args.get("start_timestamp")
-    if start_timestamp:
-        try:
-            datetime.fromisoformat(start_timestamp.replace("Z", "+00:00"))
-        except ValueError:
-            return _error("start_timestamp 格式错误")
     try:
-        return jsonify(_run_repository(repository.ranking, timestamp, top_k=top_k, start_timestamp=start_timestamp))
+        return jsonify(_run_repository(repository.ranking, timestamp, top_k=top_k))
     except ValueError as exc:
         return _error(str(exc))
     except RuntimeError as exc:
@@ -197,7 +191,7 @@ def login():
 def portfolio_status():
     return jsonify({
         "status": "reserved",
-        "rule": "进入收益前10开一手，跌出收益前10平仓",
+        "rule": "按前五个交易日净盈亏除以窗口起点一手保证金排名；进入Top 10开一手，跌出Top 10平仓",
         "max_position_per_instrument": 1,
         "initial_capital": settings.initial_capital,
     })

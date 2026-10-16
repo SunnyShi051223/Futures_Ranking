@@ -4,13 +4,12 @@
 
 ## 当前规则
 
-每个 WT8 文件代表一个品种在对应策略下的逐小时权益序列。用户选择策略、起始时点和结束时点后，系统对每个品种分别取两个时点或此前最近的一条记录，计算：
+用户只选择一个观察时点。每个品种分别取该观察时点之前第五个有行情的交易日期作为基准日，并使用基准日与观察日同一小时或之前最近的有效记录：
 
-`区间收益金额 = 结束权益 - 起始权益`
-
-`区间收益率 = 区间收益金额 / 起始权益 × 100%`
-
-榜单按单个期货合约的一手区间收益金额从高到低排序，收益率作为参考字段显示，并标记 Top K。只取所选时点之前最近的记录可以避免把未来数据用于排名；若起始时点早于该品种第一条记录，则起始权益按 500,000 计算。WT8 的汇总行、空时间行会被过滤；编码兼容 GB18030、GBK 和 UTF-8。
+- 策略榜按`（观察时点 WT8 权益 - 五日前 WT8 权益）÷ 五日前一手保证金`从高到低排序；保证金用窗口起点价格、合约乘数和当时已知保证金率估算。
+- 纯价格榜按`观察时点价格 ÷ 五日前价格 - 1`从高到低排序，不使用策略权益。
+- 少于五个历史交易日期或缺少有效基准权益/价格的品种不参与当次排名。
+- 两端数据均不晚于观察时点；页面显示每个品种实际使用的数据时间。
 
 ## 启动
 
@@ -49,11 +48,9 @@ Futures_Ranking/
 
 ## API
 
-`GET /api/health`、`GET /api/strategies`、`GET /api/periods?strategy=sar_long`、`GET /api/rankings?strategy=sar_long&start_timestamp=2026-01-01T20:00:00&timestamp=2026-10-01T20:00:00&top_k=10`、`GET /api/contracts`、`GET /api/contracts/{品种}/series`。
+`GET /api/health`、`GET /api/strategies`、`GET /api/periods?strategy=sar_long`、`GET /api/rankings?strategy=sar_long&timestamp=2026-10-09T15:00:00&top_k=10`、`GET /api/contracts`、`GET /api/contracts/{品种}/series`。
 
-排名接口传入 `start_timestamp` 和 `timestamp` 后，会对每个品种取起始、结束时点之前最近的权益，按区间收益金额排序：`区间收益 = 结束权益 - 起始权益`，`区间收益率 = 区间收益 / 起始权益 × 100%`。
-
-点击榜单中的品种名称可展开该区间的 WT8 买卖信号明细，包含时间、买卖/开平操作、合约、成交价格、手数、成交额、手续费、平仓盈亏和当时权益。CSV 模式从原始信号明细读取；MySQL 模式使用各策略表中的成交字段。已有 MySQL 安装可运行 `python scripts/migrate_trade_details.py` 增加并同步这些字段，该脚本只更新已有行，不清空策略表。
+排名接口只需要一个观察时点 `timestamp`。返回项包含五日前基准时间、当前有效数据时间、收益金额/价格涨跌和收益率。点击策略榜品种可展开实际五日窗口内的 WT8 买卖信号明细。CSV 模式读取原始信号明细；MySQL 模式读取策略表。
 
 ## 本地 MySQL 数据库
 
@@ -84,3 +81,9 @@ python scripts/import_mysql.py
 ## 后续接入 MySQL
 
 将 CSV 标准化为按 `instrument、timestamp、contract、equity、price、signal、position` 存储的明细表，实现 `backend/repositories/mysql_repository.py` 中的仓储方法，再在 `backend/routes/api.py` 把仓储实例替换为 MySQL 实现，前端接口不需要修改。
+
+## 组合回测
+
+`notebooks/top10_portfolio_backtest.ipynb` 回测 Notebook 由 `BACKTEST_CONFIGS` 集中声明策略：当前包括三套前五日保证金收益率 Top 10 榜单，以及 20 个有行情交易日纯价格涨幅 Top 5 多头组合。新增回测通常只需增加配置项，即可自动进入统一引擎、汇总、权益曲线、持仓图和 CSV 导出。WT8 榜单按“窗口内权益变化 ÷ 窗口起点一手保证金”排序；纯价格榜按前 20 个有行情交易日的同一实际合约价格涨幅排序；窗口跨合约时不纳入该时点排名，避免主连价差污染涨幅。进入榜单后在下一条可交易记录买入一手，跌出榜单后平仓。初始资金 500,000 元，WT8 榜单最多持有十个品种，纯价格榜最多持有五个品种。价格盈亏按价格变化 × 合约乘数计算，保证金用于限制资金占用。
+
+运行 Notebook 会生成四组策略汇总、交易明细、持仓快照、权益 CSV，以及比较资金曲线的 `backtest_output/top10_portfolio_equity_curve.png`。当前价格 Top 5 模拟净盈亏约 ¥126,310，期末权益约 ¥626,310，最大回撤约 -68.10%。这仍是基于小时级主连导出数据的近似模拟：手续费和滑点为零，历史合约换月成交、逐日真实保证金及实际强平规则尚未完整建模，不能作为历史真实账户收益。详细口径、限制、结果和文件说明见 `backtest_output/readme.md`。
